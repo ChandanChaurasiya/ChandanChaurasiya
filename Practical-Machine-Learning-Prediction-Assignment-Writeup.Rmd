@@ -1,0 +1,116 @@
+---
+title: "Practical Machine Learning Prediction Assignment Writeup"
+author: "Chandan Chaurasiya"
+date: "14/10/2021"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Summary
+The project aims to perform several procedures on training data and then apply it on the test data to predict 20 different test cases.
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har
+
+# Loading the required packages
+```{r warning=FALSE}
+library(ggplot2)
+library(caret)
+library(fscaret)
+library(randomForest)
+library(e1071)
+library(blogdown)
+```
+
+# Loading the data
+```{r}
+# Importing the training data
+training <- read.table("C:/Users/Chandan/OneDrive/Documents/R/pml-training.csv", sep = ",", header = T)
+
+# Importing the testing data
+testing <- read.table("C:/Users/Chandan/OneDrive/Documents/R/pml-testing.csv", sep = ",", header = T)
+```
+
+# Splitting the data and selecting the features
+I will set the seed here to make the analysis reproducible.
+
+```{r}
+set.seed(2021)
+```
+
+I need to to split the original data into training set and a validation set.
+
+```{r}
+inTrain <- createDataPartition(y = training$classe, p = 0.7, list = F)
+training1 <- training[inTrain, ]
+training2 <- training[-inTrain, ]
+```
+
+Many columns of the data set contain the same value across the lines.These "near-zero variance predictors" bring no information to our model and will unnecessarily make the process longer. Others are totally filled by NA values. Finally, the six last variables do not concern fitness motions whatsoever. They also need to be remove before we start fitting the model.
+
+```{r}
+# Removing near-zero variance predictors
+
+nzv <- nearZeroVar(training)
+training1 <- training1[, -nzv]
+training2 <- training2[, -nzv]
+
+# Removing predictors with NA values
+training1 <- training1[, colSums(is.na(training1)) == 0]
+training2 <- training2[, colSums(is.na(training2)) == 0]
+
+# Removing columns unfit for prediction (ID, user_name, raw_timestamp_part_1 etc ...)
+training1 <- training1[, -(1:5)]
+training2 <- training2[, -(1:5)]
+```
+
+# Selecting a model
+We chose to fit a random forest model. This model provided the most accurate results all along the machine learning course. The cross-validation is set to draw a subset of the data three different times.
+
+```{r warning=FALSE}
+model1 <- train(as.factor(classe) ~ ., method = "rf", data = training1, verbose = TRUE, trControl = trainControl(method="cv"), number=3)
+pred1 <- predict(model1, training1)
+confusionMatrix(pred1, training1$classe)
+```
+
+We get a very high accuracy of 99% but we still need to know how this model performs against the test set before expressing a conclusion.
+
+```{r}
+pred12 <- predict(model1, training2)
+confusionMatrix(pred12, training2$classe)
+```
+
+As we can see we still get a very high accuracy. We have not over fitted the model while training it.
+
+# Testing the model
+We apply to the final test set the same features selection method that we use for the training set
+
+```{r}
+testing <- testing[, colSums(is.na(testing)) == 0]
+testing <- testing[, -(1:5)]
+nzvt <- nearZeroVar(testing)
+testing <- testing[, -nzvt]
+```
+
+We test the random forest model on the test set
+
+```{r}
+pred13 <- predict(model1, testing)
+pred13
+```
+
+# Conclusion:
+Random forest model has shown very high accuracy for the training model. Therefore, we applied the random forest model on testing data and predicted the 20 different test cases as shown above.
